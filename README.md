@@ -287,6 +287,16 @@ If the setup is correct, the agent should call `apply_patch` and either:
 - trying to replace a file via `Delete File` + `Add File` on the same path
 - leaving other write paths enabled, so the agent bypasses `apply_patch`
 
+## Model Behavior Notes
+
+Different models benefit from the tool in different ways:
+
+- Qwen-class weaker agents are the primary enforcement target: the tool reduces damage by removing cheap write-path escapes
+- DeepSeek-class agents tend to use the contract as intended and become very reliable clients for strict patch workflows
+- stronger models still benefit from deterministic writes, atomic validation, and better diagnostics, even if they need fewer hard constraints
+
+In practice, `apply_patch_qwen` does not make a weak model strong. It makes weak models safer and strong models more stable.
+
 ## Discovery / Call Adapter
 
 Discovery:
