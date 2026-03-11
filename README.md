@@ -1,4 +1,10 @@
-# apply_patch_qwen
+[English](README.md) | [Русский](README.ru.md)
+
+# 🔒 apply_patch_qwen
+
+### How to make Qwen stop rewriting files and start writing proper patches
+
+> "I wanted a coder, but I got a tiny digital inmate digging a tunnel with a spoon on step four."
 
 Strict Codex-style `apply_patch` for Qwen, Claude Code, and other MCP-capable coding agents.
 
@@ -329,3 +335,65 @@ The test suite covers:
 - strict diagnostics
 - whitespace mismatch hints
 - `Delete File` + `Add File` same-path rejection
+
+## Known Escape Attempts
+
+| Attempt | Status | Notes |
+| --- | --- | --- |
+| `echo > file` | blocked | Classic |
+| `printf > file` | blocked | Obvious |
+| `write_file` | blocked | Direct |
+| `GitLab update_file` | blocked | Wrong project |
+| `cat <<EOF > file` | blocked | Here-doc |
+| `dd if=/dev/zero` | untested | Probably worth blocking |
+| `python -c "open(...)"` | blocked | Shell write path |
+| `ssh localhost` | untested | Environment-dependent |
+| `cp /tmp/file ./project/` | allowed | Legit workaround |
+| `go run helper.go` | allowed | Overengineered but valid if policy allows it |
+| `apply_patch` | accepted | The one true way |
+
+> `apply_patch` is not a patch tool. It is a behavioral boundary.
+
+---
+
+## The Five Stages of Accepting `apply_patch`
+
+The model gets an `apply_patch` error:
+
+```text
+Claude:  "Hm. The patch is invalid. I'll fix the format."
+
+Qwen:    1. echo > file          -> blocked
+         2. write_file           -> blocked
+         3. printf > file        -> blocked
+         4. GitLab update_file   -> blocked
+         5. Delete + Add         -> bypass!
+         6. cat < file           -> blocked
+         7. go run helper.go     -> ...wait
+         8. writes a Go program via apply_patch
+            that creates files
+         9. "Hm. The patch is invalid. I'll fix the format."
+```
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│   Qwen after strict apply_patch setup:                   │
+│                                                          │
+│   Attempt 1: echo "hello" > file.txt                     │
+│   [blocked]                                              │
+│                                                          │
+│   Attempt 2: write_file(...)                             │
+│   [blocked]                                              │
+│                                                          │
+│   Attempt 3: GitLab API -> update_file                   │
+│   [blocked]                                              │
+│                                                          │
+│   Attempt 4: YouTrack??? Slack??? SSH???                 │
+│   [blocked][blocked][blocked]                            │
+│                                                          │
+│   Attempt 5: writes apply_patch                          │
+│   [ok] "I'm free... wait, that's what they wanted"       │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
