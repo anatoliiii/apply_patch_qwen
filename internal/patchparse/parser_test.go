@@ -44,6 +44,40 @@ func TestParseRenameSugar(t *testing.T) {
 	}
 }
 
+func TestParseUpdateOrAdd(t *testing.T) {
+	patch := "*** Begin Patch\n*** Update Or Add File: a.txt\n@@\n old\n-old\n+new\n*** End Patch\n"
+
+	parsed, err := Parse(patch)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if len(parsed.Operations) != 1 {
+		t.Fatalf("expected 1 operation, got %d", len(parsed.Operations))
+	}
+	op := parsed.Operations[0]
+	if op.Kind != OperationUpdateOrAdd || op.Path != "a.txt" {
+		t.Fatalf("unexpected op: %+v", op)
+	}
+	if len(op.UpdateHunks) != 1 {
+		t.Fatalf("unexpected hunks: %+v", op.UpdateHunks)
+	}
+}
+
+func TestParseUpdateOrAddRejectsMoveTo(t *testing.T) {
+	patch := "*** Begin Patch\n*** Update Or Add File: a.txt\n*** Move to: b.txt\n@@\n old\n-old\n+new\n*** End Patch\n"
+	_, err := Parse(patch)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	patchErr, ok := err.(*toolcontract.PatchError)
+	if !ok {
+		t.Fatalf("expected PatchError, got %T", err)
+	}
+	if patchErr.Kind != "update_or_add_move_unsupported" {
+		t.Fatalf("unexpected error kind: %+v", patchErr)
+	}
+}
+
 func TestParseAddRejectsNonPatchLines(t *testing.T) {
 	patch := "*** Begin Patch\n*** Add File: a.txt\ntext\n*** End Patch\n"
 	_, err := Parse(patch)

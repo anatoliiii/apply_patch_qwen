@@ -58,6 +58,30 @@ func TestFailureAddsValidExampleForFormatErrors(t *testing.T) {
 	}
 }
 
+func TestFailureAddsHintForWhitespaceMismatch(t *testing.T) {
+	resp := Failure("Patch rejected.", Diagnostic{
+		Kind:    "context_mismatch",
+		Path:    "a.txt",
+		Message: `expected context for hunk "@@" was not found; first differing line near file line 4, hunk line 2: expected "    x" but found "\tx" (whitespace differs)`,
+	})
+
+	if !strings.Contains(resp.Hint, "including whitespace") {
+		t.Fatalf("unexpected hint: %q", resp.Hint)
+	}
+}
+
+func TestGeneratePatchFailureUsesHint(t *testing.T) {
+	resp := GeneratePatchFailure("Patch generation rejected.", Diagnostic{
+		Kind:    "missing_file",
+		Path:    "a.txt",
+		Message: "cannot generate Update File for empty old_content; use Add File or auto mode",
+	})
+
+	if resp.Hint == "" {
+		t.Fatalf("expected hint in generate patch failure: %+v", resp)
+	}
+}
+
 func TestFailureAddsHumanReadableSummaryForMultipleDiagnostics(t *testing.T) {
 	resp := Failure(
 		"Patch rejected.",
@@ -87,5 +111,21 @@ func TestFailureSummarizesReplaceViaDeleteAdd(t *testing.T) {
 
 	if resp.Summary != "Patch rejected; replace via delete+add for a.txt." {
 		t.Fatalf("unexpected summary: %q", resp.Summary)
+	}
+}
+
+func TestDiscoveryDocumentIncludesGeneratePatch(t *testing.T) {
+	entries := DiscoveryDocument()
+	found := false
+	for _, entry := range entries {
+		if entry.Name == ToolNameGeneratePatch {
+			found = true
+			if !strings.Contains(entry.Description, "old_content") {
+				t.Fatalf("unexpected description: %q", entry.Description)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected generate_patch tool in discovery document")
 	}
 }

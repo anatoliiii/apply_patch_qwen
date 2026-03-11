@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	beginPatch = "*** Begin Patch"
-	endPatch   = "*** End Patch"
-	addFile    = "*** Add File: "
-	deleteFile = "*** Delete File: "
-	updateFile = "*** Update File: "
-	renameFile = "*** Rename File: "
-	moveTo     = "*** Move to: "
-	hunkMarker = "@@"
+	beginPatch      = "*** Begin Patch"
+	endPatch        = "*** End Patch"
+	addFile         = "*** Add File: "
+	deleteFile      = "*** Delete File: "
+	updateFile      = "*** Update File: "
+	updateOrAddFile = "*** Update Or Add File: "
+	renameFile      = "*** Rename File: "
+	moveTo          = "*** Move to: "
+	hunkMarker      = "@@"
 )
 
 func Parse(input string) (*Patch, error) {
@@ -62,6 +63,13 @@ func Parse(input string) (*Patch, error) {
 			i = next
 		case strings.HasPrefix(line, updateFile):
 			op, next, err := parseUpdate(lines, i)
+			if err != nil {
+				return nil, err
+			}
+			patch.Operations = append(patch.Operations, op)
+			i = next
+		case strings.HasPrefix(line, updateOrAddFile):
+			op, next, err := parseUpdateOrAdd(lines, i)
 			if err != nil {
 				return nil, err
 			}
@@ -133,13 +141,33 @@ func parseDelete(lines []string, start int) (FileOperation, int, error) {
 }
 
 func parseUpdate(lines []string, start int) (FileOperation, int, error) {
-	path := strings.TrimSpace(strings.TrimPrefix(lines[start], updateFile))
+	return parseUpdateLike(lines, start, updateFile, OperationUpdate, true)
+}
+
+func parseUpdateOrAdd(lines []string, start int) (FileOperation, int, error) {
+	return parseUpdateLike(lines, start, updateOrAddFile, OperationUpdateOrAdd, false)
+}
+
+func parseUpdateLike(lines []string, start int, directive string, kind OperationKind, allowMove bool) (FileOperation, int, error) {
+	path := strings.TrimSpace(strings.TrimPrefix(lines[start], directive))
 	if path == "" {
-		return FileOperation{}, 0, parseError("missing_update_path", start+1, "missing update file path")
+		switch kind {
+		case OperationUpdateOrAdd:
+			return FileOperation{}, 0, parseError("missing_update_or_add_path", start+1, "missing update or add file path")
+		default:
+			return FileOperation{}, 0, parseError("missing_update_path", start+1, "missing update file path")
+		}
 	}
-	op := FileOperation{Kind: OperationUpdate, Path: path, UpdateHunks: []Hunk{}}
+	op := FileOperation{Kind: kind, Path: path, UpdateHunks: []Hunk{}}
 	i := start + 1
 	if i < len(lines)-1 && strings.HasPrefix(lines[i], moveTo) {
+		if !allowMove {
+			return FileOperation{}, 0, parseError(
+				"update_or_add_move_unsupported",
+				i+1,
+				fmt.Sprintf("%q does not support %q", directive, moveTo),
+			)
+		}
 		op.MoveTo = strings.TrimSpace(strings.TrimPrefix(lines[i], moveTo))
 		if op.MoveTo == "" {
 			return FileOperation{}, 0, parseError(
@@ -193,10 +221,16 @@ func parseUpdate(lines []string, start int) (FileOperation, int, error) {
 		op.UpdateHunks = append(op.UpdateHunks, hunk)
 	}
 	if len(op.UpdateHunks) == 0 && op.MoveTo == "" {
+		kindName := "update file"
+		errorKind := "update_missing_hunks"
+		if kind == OperationUpdateOrAdd {
+			kindName = "update or add file"
+			errorKind = "update_or_add_missing_hunks"
+		}
 		return FileOperation{}, 0, parseError(
-			"update_missing_hunks",
+			errorKind,
 			start+1,
-			fmt.Sprintf("update file %q must contain hunks or move target", path),
+			fmt.Sprintf("%s %q must contain hunks or move target", kindName, path),
 		)
 	}
 	return op, i, nil
@@ -252,5 +286,6 @@ func isDirective(line string) bool {
 		strings.HasPrefix(line, addFile) ||
 		strings.HasPrefix(line, deleteFile) ||
 		strings.HasPrefix(line, updateFile) ||
+		strings.HasPrefix(line, updateOrAddFile) ||
 		strings.HasPrefix(line, renameFile)
 }

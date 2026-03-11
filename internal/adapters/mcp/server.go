@@ -172,7 +172,9 @@ func (s *Server) handle(body []byte) []byte {
 				},
 			})
 		}
-		var resp toolcontract.ApplyPatchResponse
+		var resp struct {
+			OK bool `json:"ok"`
+		}
 		if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
 			return mustMarshal(response{
 				JSONRPC: "2.0",
@@ -183,7 +185,6 @@ func (s *Server) handle(body []byte) []byte {
 				},
 			})
 		}
-		text, _ := json.Marshal(resp)
 		return mustMarshal(response{
 			JSONRPC: "2.0",
 			ID:      req.ID,
@@ -191,7 +192,7 @@ func (s *Server) handle(body []byte) []byte {
 				"content": []map[string]any{
 					{
 						"type": "text",
-						"text": string(text),
+						"text": strings.TrimSpace(out.String()),
 					},
 				},
 				"isError": !resp.OK,
@@ -211,7 +212,6 @@ func (s *Server) handle(body []byte) []byte {
 		})
 	}
 }
-
 
 func readMessage(r *bufio.Reader) ([]byte, error) {
 	for {
