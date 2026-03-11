@@ -78,11 +78,12 @@ type ApplyPatchResponse struct {
 }
 
 type GeneratePatchResponse struct {
-	OK          bool         `json:"ok"`
-	Summary     string       `json:"summary"`
-	Hint        string       `json:"hint,omitempty"`
-	Patch       string       `json:"patch,omitempty"`
-	Diagnostics []Diagnostic `json:"diagnostics"`
+	OK           bool          `json:"ok"`
+	Summary      string        `json:"summary"`
+	Hint         string        `json:"hint,omitempty"`
+	Patch        string        `json:"patch,omitempty"`
+	DisplayFiles []DisplayFile `json:"display_files,omitempty"`
+	Diagnostics  []Diagnostic  `json:"diagnostics"`
 }
 
 type DiscoveryEntry struct {
@@ -241,12 +242,13 @@ func Failure(summary string, diagnostics ...Diagnostic) ApplyPatchResponse {
 	}
 }
 
-func GeneratePatchSuccess(summary string, patch string) GeneratePatchResponse {
+func GeneratePatchSuccess(summary string, patch string, displayFiles []DisplayFile) GeneratePatchResponse {
 	return GeneratePatchResponse{
-		OK:          true,
-		Summary:     strings.TrimSpace(summary),
-		Patch:       patch,
-		Diagnostics: []Diagnostic{},
+		OK:           true,
+		Summary:      strings.TrimSpace(summary),
+		Patch:        patch,
+		DisplayFiles: displayFiles,
+		Diagnostics:  []Diagnostic{},
 	}
 }
 

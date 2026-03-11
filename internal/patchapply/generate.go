@@ -37,16 +37,19 @@ func (e *Executor) GeneratePatch(req toolcontract.GeneratePatchRequest) (toolcon
 			return toolcontract.GeneratePatchSuccess(
 				fmt.Sprintf("Generated add patch for %s", resolved.Relative),
 				buildAddPatch(resolved.Relative, req.NewContent),
+				buildGenerateDisplayFiles(resolved.Relative, req.OldContent, req.NewContent),
 			), nil
 		}
 		return toolcontract.GeneratePatchSuccess(
 			fmt.Sprintf("Generated update patch for %s", resolved.Relative),
 			buildUpdatePatch(resolved.Relative, req.OldContent, req.NewContent),
+			buildGenerateDisplayFiles(resolved.Relative, req.OldContent, req.NewContent),
 		), nil
 	case "add":
 		return toolcontract.GeneratePatchSuccess(
 			fmt.Sprintf("Generated add patch for %s", resolved.Relative),
 			buildAddPatch(resolved.Relative, req.NewContent),
+			buildGenerateDisplayFiles(resolved.Relative, req.OldContent, req.NewContent),
 		), nil
 	case "update":
 		if req.OldContent == "" {
@@ -59,6 +62,7 @@ func (e *Executor) GeneratePatch(req toolcontract.GeneratePatchRequest) (toolcon
 		return toolcontract.GeneratePatchSuccess(
 			fmt.Sprintf("Generated update patch for %s", resolved.Relative),
 			buildUpdatePatch(resolved.Relative, req.OldContent, req.NewContent),
+			buildGenerateDisplayFiles(resolved.Relative, req.OldContent, req.NewContent),
 		), nil
 	default:
 		return toolcontract.GeneratePatchFailure("Patch generation rejected.", toolcontract.Diagnostic{
@@ -67,6 +71,17 @@ func (e *Executor) GeneratePatch(req toolcontract.GeneratePatchRequest) (toolcon
 			Message: fmt.Sprintf("unsupported generation mode %q", mode),
 		}), nil
 	}
+}
+
+func buildGenerateDisplayFiles(path string, oldContent string, newContent string) []toolcontract.DisplayFile {
+	display := toolcontract.DisplayFile{Path: path}
+	if oldContent != "" {
+		oldValue := oldContent
+		display.OriginalContent = &oldValue
+	}
+	newValue := newContent
+	display.NewContent = &newValue
+	return []toolcontract.DisplayFile{display}
 }
 
 func buildAddPatch(path string, content string) string {

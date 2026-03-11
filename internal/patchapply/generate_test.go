@@ -31,6 +31,12 @@ func TestGeneratePatchAutoAdd(t *testing.T) {
 	if !strings.Contains(resp.Patch, "*** Add File: a.txt") {
 		t.Fatalf("unexpected patch: %q", resp.Patch)
 	}
+	if len(resp.DisplayFiles) != 1 || resp.DisplayFiles[0].Path != "a.txt" {
+		t.Fatalf("expected display file preview: %+v", resp.DisplayFiles)
+	}
+	if resp.DisplayFiles[0].NewContent == nil || *resp.DisplayFiles[0].NewContent != "hello\nworld\n" {
+		t.Fatalf("unexpected display preview: %+v", resp.DisplayFiles[0])
+	}
 }
 
 func TestGeneratePatchAutoUpdateRoundTrips(t *testing.T) {
@@ -65,6 +71,9 @@ func TestGeneratePatchAutoUpdateRoundTrips(t *testing.T) {
 	}
 	if !applyResp.OK {
 		t.Fatalf("generated patch should validate: %+v", applyResp)
+	}
+	if len(resp.DisplayFiles) != 1 || resp.DisplayFiles[0].OriginalContent == nil {
+		t.Fatalf("expected display diff preview: %+v", resp.DisplayFiles)
 	}
 }
 
