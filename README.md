@@ -8,13 +8,46 @@
 
 Strict Codex-style `apply_patch` for Qwen, Claude Code, and other MCP-capable coding agents.
 
-This project provides a narrow, fail-fast patch tool for weaker or less disciplined models:
+## Install
 
-- one strict patch format
-- atomic planning and commit
-- workspace-root path guard
-- explicit diagnostics for malformed hunks and context mismatch
-- server-side blocks for common bypasses such as `Delete File` + `Add File` on the same path
+One command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+```
+
+Pin a specific version:
+
+```bash
+VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+```
+
+### Fallback: download and run
+
+Download the release archive for your platform from [Releases](https://github.com/anatoliiii/apply_patch_qwen/releases), then:
+
+```bash
+tar xzf apply_patch_qwen_v*.tar.gz
+cd apply_patch_qwen_v*
+chmod +x install.sh
+./install.sh
+```
+
+### What the installer does
+
+- installs `qwen-apply-patch-mcp` and `qwen-apply-patch-tool` into `~/.local/bin`
+- updates `~/.qwen/settings.json` (Qwen Code config)
+- updates `~/.claude.json` (Claude Code config)
+- registers `strictPatch` MCP server for both clients
+
+After that, restart Qwen Code / Claude Code or open a new session.
+
+### Config paths
+
+| Client | Config file | What gets added |
+| --- | --- | --- |
+| Qwen Code | `~/.qwen/settings.json` | `mcpServers.strictPatch` + tool exclusions |
+| Claude Code | `~/.claude.json` | `mcpServers.strictPatch` |
 
 ## What It Solves
 
@@ -27,23 +60,13 @@ Many coding agents treat a rejected patch as a signal to find another write path
 
 `apply_patch_qwen` narrows the contract so the model is forced to repair the patch instead of improvising a new file-writing route.
 
-## Quick Start
+This project provides a narrow, fail-fast patch tool for weaker or less disciplined models:
 
-If you downloaded the release artifacts, the simplest path is:
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-What it does:
-
-- installs `qwen-apply-patch-mcp` and `qwen-apply-patch-tool` into `~/.local/bin`
-- updates `~/.qwen/settings.json`
-- updates `~/.claude.json`
-- registers `strictPatch` for both Qwen Code and Claude Code
-
-After that, restart the client or open a new session.
+- one strict patch format
+- atomic planning and commit
+- workspace-root path guard
+- explicit diagnostics for malformed hunks and context mismatch
+- server-side blocks for common bypasses such as `Delete File` + `Add File` on the same path
 
 ## Patch Contract
 

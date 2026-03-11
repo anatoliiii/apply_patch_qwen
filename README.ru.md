@@ -8,13 +8,46 @@
 
 Строгий Codex-style `apply_patch` для Qwen, Claude Code и других MCP-совместимых coding agents.
 
-Этот проект даёт узкий и fail-fast инструмент для менее дисциплинированных моделей:
+## Установка
 
-- один строгий формат патча
-- атомарное планирование и commit
-- path guard по workspace root
-- явные diagnostics для сломанных hunk'ов и `context_mismatch`
-- серверные блокировки для типовых обходов вроде `Delete File` + `Add File` на одном и том же пути
+Одной командой:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+```
+
+Установить конкретную версию:
+
+```bash
+VERSION=v1.0.0 curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+```
+
+### Запасной путь: скачать и запустить
+
+Скачай архив для своей платформы из [Releases](https://github.com/anatoliiii/apply_patch_qwen/releases), затем:
+
+```bash
+tar xzf apply_patch_qwen_v*.tar.gz
+cd apply_patch_qwen_v*
+chmod +x install.sh
+./install.sh
+```
+
+### Что делает установщик
+
+- ставит `qwen-apply-patch-mcp` и `qwen-apply-patch-tool` в `~/.local/bin`
+- обновляет `~/.qwen/settings.json` (конфиг Qwen Code)
+- обновляет `~/.claude.json` (конфиг Claude Code)
+- регистрирует MCP сервер `strictPatch` для обоих клиентов
+
+После этого перезапусти Qwen Code / Claude Code или открой новую сессию.
+
+### Пути конфигов
+
+| Клиент | Конфиг файл | Что добавляется |
+| --- | --- | --- |
+| Qwen Code | `~/.qwen/settings.json` | `mcpServers.strictPatch` + исключения инструментов |
+| Claude Code | `~/.claude.json` | `mcpServers.strictPatch` |
 
 ## Что Это Решает
 
@@ -27,23 +60,13 @@
 
 `apply_patch_qwen` сужает контракт так, чтобы модель чинила сам patch, а не искала новый маршрут записи в файл.
 
-## Быстрый Старт
+Этот проект даёт узкий и fail-fast инструмент для менее дисциплинированных моделей:
 
-Если ты скачал release artifacts, самый простой путь такой:
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-Что делает скрипт:
-
-- ставит `qwen-apply-patch-mcp` и `qwen-apply-patch-tool` в `~/.local/bin`
-- обновляет `~/.qwen/settings.json`
-- обновляет `~/.claude.json`
-- регистрирует `strictPatch` и для Qwen Code, и для Claude Code
-
-После этого просто перезапусти клиент или открой новую сессию.
+- один строгий формат патча
+- атомарное планирование и commit
+- path guard по workspace root
+- явные diagnostics для сломанных hunk'ов и `context_mismatch`
+- серверные блокировки для типовых обходов вроде `Delete File` + `Add File` на одном и том же пути
 
 ## Контракт Патча
 

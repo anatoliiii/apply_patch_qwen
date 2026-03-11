@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CGO_ENABLED: "0"
+      GOCACHE: /tmp/go-build-cache
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,38 +28,9 @@ jobs:
         run: go test ./...
 
       - name: Build release artifacts
-        shell: bash
         run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME}"
-          mkdir -p dist
-
-          targets=(
-            "linux amd64"
-            "linux arm64"
-            "darwin amd64"
-            "darwin arm64"
-          )
-
-          for target in "${targets[@]}"; do
-            read -r goos goarch <<<"$target"
-            stage="dist/apply_patch_qwen_${version}_${goos}_${goarch}"
-            archive="${stage}.tar.gz"
-
-            mkdir -p "${stage}/bin"
-            GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="-s -w" -o "${stage}/bin/qwen-apply-patch-mcp" ./cmd/qwen-apply-patch-mcp
-            GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="-s -w" -o "${stage}/bin/qwen-apply-patch-tool" ./cmd/qwen-apply-patch-tool
-
-            cp README.md LICENSE install.sh "${stage}/"
-            chmod +x "${stage}/install.sh"
-            tar -C dist -czf "${archive}" "$(basename "${stage}")"
-            rm -rf "${stage}"
-          done
-
-          (
-            cd dist
-            sha256sum ./*.tar.gz > SHA256SUMS.txt
-          )
+          chmod +x scripts/build-release.sh
+          scripts/build-release.sh "${GITHUB_REF_NAME}"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
@@ -67,3 +39,19 @@ jobs:
             dist/*.tar.gz
             dist/SHA256SUMS.txt
           generate_release_notes: true
+          body: |
+            ## Install
+
+            One-line install:
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+            ```
+
+            Pin this version:
+
+            ```bash
+            VERSION=${{ github.ref_name }} curl -fsSL https://raw.githubusercontent.com/anatoliiii/apply_patch_qwen/main/scripts/install-from-release.sh | sh
+            ```
+
+            Or download the archive for your platform, extract it, and run `./install.sh`.
