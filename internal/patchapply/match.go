@@ -120,13 +120,17 @@ func describeContextMismatch(lines []string, pattern []string, from int) string 
 	if best.expected == "" {
 		return ""
 	}
+	location := ""
+	if best.fileLine > 0 || best.hunkLine > 0 {
+		location = fmt.Sprintf("near file line %d, hunk line %d: ", best.fileLine, best.hunkLine)
+	}
 	if best.whitespaceOnly {
-		return fmt.Sprintf("first differing line: expected %q but found %q (whitespace differs)", best.expected, best.got)
+		return fmt.Sprintf("first differing line %sexpected %q but found %q (whitespace differs)", location, best.expected, best.got)
 	}
 	if best.got == "<EOF>" {
-		return fmt.Sprintf("first differing line: expected %q but found end of file", best.expected)
+		return fmt.Sprintf("first differing line %sexpected %q but found end of file", location, best.expected)
 	}
-	return fmt.Sprintf("first differing line: expected %q but found %q", best.expected, best.got)
+	return fmt.Sprintf("first differing line %sexpected %q but found %q", location, best.expected, best.got)
 }
 
 func normalizeWhitespaceHint(value string) string {
@@ -139,6 +143,8 @@ type mismatchWindow struct {
 	whitespaceOnly bool
 	score          int
 	distance       int
+	fileLine       int
+	hunkLine       int
 }
 
 func bestMismatchWindow(lines []string, pattern []string, from int) mismatchWindow {
@@ -149,7 +155,7 @@ func bestMismatchWindow(lines []string, pattern []string, from int) mismatchWind
 		from = 0
 	}
 	if len(lines) == 0 {
-		return mismatchWindow{expected: pattern[0], got: "<EOF>"}
+		return mismatchWindow{expected: pattern[0], got: "<EOF>", fileLine: 1, hunkLine: 1}
 	}
 
 	best := mismatchWindow{score: -1}
@@ -166,9 +172,9 @@ func bestMismatchWindow(lines []string, pattern []string, from int) mismatchWind
 		return best
 	}
 	if from < len(lines) {
-		return mismatchWindow{expected: pattern[0], got: lines[from]}
+		return mismatchWindow{expected: pattern[0], got: lines[from], fileLine: from + 1, hunkLine: 1}
 	}
-	return mismatchWindow{expected: pattern[0], got: "<EOF>"}
+	return mismatchWindow{expected: pattern[0], got: "<EOF>", fileLine: len(lines) + 1, hunkLine: 1}
 }
 
 func scoreMismatchWindow(lines []string, pattern []string, start int, anchor int) (mismatchWindow, bool) {
@@ -184,6 +190,8 @@ func scoreMismatchWindow(lines []string, pattern []string, start int, anchor int
 				result.expected = expected
 				result.got = "<EOF>"
 				result.whitespaceOnly = false
+				result.fileLine = len(lines) + 1
+				result.hunkLine = i + 1
 				foundMismatch = true
 			}
 			break
@@ -199,6 +207,8 @@ func scoreMismatchWindow(lines []string, pattern []string, start int, anchor int
 				result.expected = expected
 				result.got = got
 				result.whitespaceOnly = true
+				result.fileLine = lineIndex + 1
+				result.hunkLine = i + 1
 				foundMismatch = true
 			}
 		default:
@@ -206,6 +216,8 @@ func scoreMismatchWindow(lines []string, pattern []string, start int, anchor int
 				result.expected = expected
 				result.got = got
 				result.whitespaceOnly = false
+				result.fileLine = lineIndex + 1
+				result.hunkLine = i + 1
 				foundMismatch = true
 			}
 		}

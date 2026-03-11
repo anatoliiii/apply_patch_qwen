@@ -70,7 +70,7 @@ mcp = data.setdefault("mcpServers", {})
 mcp["strictPatch"] = {
     "command": command,
     "args": ["--root", "."],
-    "includeTools": ["apply_patch"],
+    "includeTools": ["apply_patch", "diff", "generate_patch"],
     "timeout": 30000,
 }
 

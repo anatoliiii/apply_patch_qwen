@@ -19,6 +19,9 @@ func TestWriteDocumentIncludesApplyPatch(t *testing.T) {
 	if !strings.Contains(buf.String(), `"name": "diff"`) {
 		t.Fatalf("expected diff tool in discovery output: %s", buf.String())
 	}
+	if !strings.Contains(buf.String(), `"name": "generate_patch"`) {
+		t.Fatalf("expected generate_patch tool in discovery output: %s", buf.String())
+	}
 	if !strings.Contains(buf.String(), "multiple file operations") {
 		t.Fatalf("expected multi-file guidance in discovery output: %s", buf.String())
 	}
@@ -71,5 +74,21 @@ func TestExecuteDiffPreview(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"summary": "Previewed diff for 1 file(s); +1 -1 ~1; updated 1; update a.txt"`) {
 		t.Fatalf("expected diff preview summary: %s", out.String())
+	}
+}
+
+func TestExecuteGeneratePatch(t *testing.T) {
+	root := t.TempDir()
+
+	var out bytes.Buffer
+	input := strings.NewReader(`{"path":"a.txt","old_content":"","new_content":"hello\n","mode":"auto"}`)
+	if err := Execute(root, "generate_patch", input, &out); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !strings.Contains(out.String(), `"ok": true`) {
+		t.Fatalf("unexpected response: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"patch": "*** Begin Patch\n*** Add File: a.txt\n+hello\n*** End Patch\n"`) {
+		t.Fatalf("expected generated patch in response: %s", out.String())
 	}
 }

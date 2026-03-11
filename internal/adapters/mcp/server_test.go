@@ -17,6 +17,9 @@ func TestHandleToolsList(t *testing.T) {
 	if !strings.Contains(string(reply), `"diff"`) {
 		t.Fatalf("expected diff tool in reply: %s", string(reply))
 	}
+	if !strings.Contains(string(reply), `"generate_patch"`) {
+		t.Fatalf("expected generate_patch tool in reply: %s", string(reply))
+	}
 }
 
 func TestHandlePromptsAndResourcesList(t *testing.T) {
@@ -72,5 +75,16 @@ func TestReadMessageAcceptsEOFWithoutTrailingNewline(t *testing.T) {
 	}
 	if string(got) != `{"jsonrpc":"2.0","id":1}` {
 		t.Fatalf("unexpected message: %q", string(got))
+	}
+}
+
+func TestHandleToolsCallGeneratePatch(t *testing.T) {
+	server := New(".")
+	reply := server.handle([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"generate_patch","arguments":{"path":"a.txt","old_content":"","new_content":"hello\n","mode":"auto"}}}`))
+	if !strings.Contains(string(reply), `"isError":false`) {
+		t.Fatalf("unexpected reply: %s", string(reply))
+	}
+	if !strings.Contains(string(reply), `*** Add File: a.txt`) {
+		t.Fatalf("expected generated patch in reply: %s", string(reply))
 	}
 }

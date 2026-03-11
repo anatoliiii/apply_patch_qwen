@@ -222,6 +222,37 @@ func (e *Executor) buildPlan(parsed *patchparse.Patch) (map[string]fileState, ma
 				logical[resolvedPath.Relative] = newState
 				changedPaths[resolvedPath.Relative] = struct{}{}
 			}
+		case patchparse.OperationUpdateOrAdd:
+			currentState := logical[resolvedPath.Relative]
+			if currentState.Exists {
+				updatedContent, err := applyHunks(currentState.Content, op.UpdateHunks, resolvedPath.Relative)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				if updatedContent == currentState.Content {
+					return nil, nil, nil, &toolcontract.PatchError{
+						Kind:    "no_op",
+						Path:    resolvedPath.Relative,
+						Message: "patch does not change the file",
+					}
+				}
+				newState := currentState
+				newState.Content = updatedContent
+				logical[resolvedPath.Relative] = newState
+				changedPaths[resolvedPath.Relative] = struct{}{}
+				continue
+			}
+			createdContent, err := buildCreatedContentFromHunks(op.UpdateHunks, resolvedPath.Relative)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			logical[resolvedPath.Relative] = fileState{
+				Exists:   true,
+				Content:  createdContent,
+				EOL:      "\n",
+				FileMode: toolcontract.DefaultFileMode,
+			}
+			changedPaths[resolvedPath.Relative] = struct{}{}
 		default:
 			return nil, nil, nil, fmt.Errorf("unsupported operation kind %q", op.Kind)
 		}
@@ -239,6 +270,36 @@ func (e *Executor) buildPlan(parsed *patchparse.Patch) (map[string]fileState, ma
 func isDeleteAddReplacement(previous string, next patchparse.OperationKind) bool {
 	return (previous == string(patchparse.OperationDelete) && next == patchparse.OperationAdd) ||
 		(previous == string(patchparse.OperationAdd) && next == patchparse.OperationDelete)
+}
+
+func buildCreatedContentFromHunks(hunks []patchparse.Hunk, path string) (string, error) {
+	createdLines := []string{}
+	addedLines := 0
+	for _, hunk := range hunks {
+		for _, line := range hunk.Lines {
+			switch line.Kind {
+			case '-':
+				return "", &toolcontract.PatchError{
+					Kind:    "invalid_update_or_add_create",
+					Path:    path,
+					Message: "cannot use '-' lines when creating a missing file with Update Or Add File",
+				}
+			case ' ':
+				createdLines = append(createdLines, line.Text)
+			case '+':
+				createdLines = append(createdLines, line.Text)
+				addedLines++
+			}
+		}
+	}
+	if addedLines == 0 {
+		return "", &toolcontract.PatchError{
+			Kind:    "invalid_update_or_add_create",
+			Path:    path,
+			Message: "creating a missing file with Update Or Add File requires at least one '+' line",
+		}
+	}
+	return joinAddedContent(createdLines), nil
 }
 
 func (e *Executor) readState(abs string) (fileState, error) {
@@ -372,6 +433,19 @@ func buildOperationPreviews(parsed *patchparse.Patch, originals map[string]fileS
 			}
 			if op.MoveTo != "" && len(op.UpdateHunks) > 0 {
 				if finalState, ok := final[op.MoveTo]; ok && finalState.Exists && preview.AddedLines == 0 && preview.RemovedLines == 0 {
+					preview.AddedLines = countContentLines(finalState.Content)
+				}
+			}
+		case patchparse.OperationUpdateOrAdd:
+			if originals[op.Path].Exists {
+				preview.Kind = "update"
+				added, removed := countHunkChanges(op.UpdateHunks)
+				preview.AddedLines = added
+				preview.RemovedLines = removed
+				preview.ChangedLines = minInt(added, removed)
+			} else {
+				preview.Kind = "add"
+				if finalState, ok := final[op.Path]; ok && finalState.Exists {
 					preview.AddedLines = countContentLines(finalState.Content)
 				}
 			}

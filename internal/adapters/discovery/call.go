@@ -14,20 +14,30 @@ func Execute(root string, toolName string, input io.Reader, output io.Writer) er
 	if err != nil {
 		return fmt.Errorf("read request: %w", err)
 	}
-	req, err := toolcontract.DecodeRequest(payload)
-	if err != nil {
-		return err
-	}
 	executor, err := patchapply.New(root)
 	if err != nil {
 		return err
 	}
-	var resp toolcontract.ApplyPatchResponse
+	var resp any
 	switch toolName {
 	case toolcontract.ToolNameApplyPatch:
+		req, err := toolcontract.DecodeApplyPatchRequest(payload)
+		if err != nil {
+			return err
+		}
 		resp, err = executor.Apply(req)
 	case toolcontract.ToolNameDiff:
+		req, err := toolcontract.DecodeApplyPatchRequest(payload)
+		if err != nil {
+			return err
+		}
 		resp, err = executor.Diff(req)
+	case toolcontract.ToolNameGeneratePatch:
+		req, err := toolcontract.DecodeGeneratePatchRequest(payload)
+		if err != nil {
+			return err
+		}
+		resp, err = executor.GeneratePatch(req)
 	default:
 		return fmt.Errorf("unsupported tool %q", toolName)
 	}

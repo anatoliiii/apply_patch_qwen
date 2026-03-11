@@ -3,9 +3,10 @@ package patchparse
 type OperationKind string
 
 const (
-	OperationUpdate OperationKind = "update"
-	OperationAdd    OperationKind = "add"
-	OperationDelete OperationKind = "delete"
+	OperationUpdate      OperationKind = "update"
+	OperationUpdateOrAdd OperationKind = "update_or_add"
+	OperationAdd         OperationKind = "add"
+	OperationDelete      OperationKind = "delete"
 )
 
 type Patch struct {

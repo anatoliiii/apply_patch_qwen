@@ -149,6 +149,86 @@ func TestApplyRejectsDeleteAddReplacementForSamePath(t *testing.T) {
 	}
 }
 
+func TestApplyUpdateOrAddUpdatesExistingFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("one\ntwo\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	executor, err := New(root)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	resp, err := executor.Apply(toolcontract.ApplyPatchRequest{
+		Patch: "*** Begin Patch\n*** Update Or Add File: a.txt\n@@\n one\n-two\n+three\n*** End Patch\n",
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "a.txt"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "one\nthree\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestApplyUpdateOrAddCreatesMissingFile(t *testing.T) {
+	root := t.TempDir()
+
+	executor, err := New(root)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	resp, err := executor.Apply(toolcontract.ApplyPatchRequest{
+		Patch: "*** Begin Patch\n*** Update Or Add File: a.txt\n@@\n+hello\n+world\n*** End Patch\n",
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if !resp.OK {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "a.txt"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(data) != "hello\nworld\n" {
+		t.Fatalf("unexpected file content: %q", string(data))
+	}
+}
+
+func TestApplyUpdateOrAddRejectsCreateWithoutAddedLines(t *testing.T) {
+	root := t.TempDir()
+
+	executor, err := New(root)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	resp, err := executor.Apply(toolcontract.ApplyPatchRequest{
+		Patch: "*** Begin Patch\n*** Update Or Add File: a.txt\n@@\n only context\n*** End Patch\n",
+	})
+	if err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if resp.OK {
+		t.Fatalf("expected failure response: %+v", resp)
+	}
+	if len(resp.Diagnostics) != 1 || resp.Diagnostics[0].Kind != "invalid_update_or_add_create" {
+		t.Fatalf("unexpected diagnostics: %+v", resp.Diagnostics)
+	}
+	if resp.Hint == "" {
+		t.Fatalf("expected hint in response: %+v", resp)
+	}
+}
+
 func TestApplyPreservesSpecificParseErrorKind(t *testing.T) {
 	root := t.TempDir()
 
@@ -216,6 +296,9 @@ func TestApplyContextMismatchIncludesWhitespaceHint(t *testing.T) {
 	got := resp.Diagnostics[0].Message
 	if !strings.Contains(got, "whitespace differs") || !strings.Contains(got, "expected") || !strings.Contains(got, "found") {
 		t.Fatalf("expected whitespace hint in diagnostic message, got %q", got)
+	}
+	if !strings.Contains(got, "near file line") || !strings.Contains(got, "hunk line") {
+		t.Fatalf("expected location details in diagnostic message, got %q", got)
 	}
 	if !strings.Contains(got, `expected "    if part == \"\" {"`) {
 		t.Fatalf("expected mismatch to point at the indented line, got %q", got)
