@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "strictPatchProject": {
+      "type": "stdio",
+      "command": "/home/lika/gitea_aya/apply_patch_qwen/bin/qwen-apply-patch-mcp",
+      "args": ["--root", "."],
+      "cwd": "/home/lika/gitea_aya/apply_patch_qwen",
+      "env": {},
+      "startupTimeoutMs": 30000,
+      "toolCallTimeoutMs": 30000
+    }
+  }
+}
