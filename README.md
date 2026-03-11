@@ -21,6 +21,24 @@ Many coding agents treat a rejected patch as a signal to find another write path
 
 `apply_patch_qwen` narrows the contract so the model is forced to repair the patch instead of improvising a new file-writing route.
 
+## Quick Start
+
+If you downloaded the release artifacts, the simplest path is:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+What it does:
+
+- installs `qwen-apply-patch-mcp` and `qwen-apply-patch-tool` into `~/.local/bin`
+- updates `~/.qwen/settings.json`
+- updates `~/.claude.json`
+- registers `strictPatch` for both Qwen Code and Claude Code
+
+After that, restart the client or open a new session.
+
 ## Patch Contract
 
 Request shape:
@@ -134,22 +152,15 @@ go build -o bin/qwen-apply-patch-tool ./cmd/qwen-apply-patch-tool
 go build -o bin/qwen-apply-patch-mcp ./cmd/qwen-apply-patch-mcp
 ```
 
-## Discovery / Call Adapter
+## Quick Integrations
 
-Discovery:
+Pick one integration mode depending on your agent.
 
-```bash
-go run ./cmd/qwen-apply-patch-tool discovery
-```
+### Qwen Code - discovery/call adapter
 
-Call:
+Use this mode if you want `apply_patch_qwen` to appear as a normal external tool via Qwen Code's `discoveryCommand` / `callCommand`.
 
-```bash
-printf '%s' '{"patch":"*** Begin Patch\n*** Add File: demo.txt\n+hello\n*** End Patch\n"}' \
-  | go run ./cmd/qwen-apply-patch-tool call apply_patch
-```
-
-Qwen Code config example:
+Config file: `~/.qwen/settings.json`
 
 ```json
 {
@@ -178,30 +189,13 @@ Qwen Code config example:
 }
 ```
 
-## MCP Server
+Use this when you want a narrow "only patch through apply_patch" workflow without running a full MCP server.
 
-Run:
+### Qwen Code - MCP server
 
-```bash
-go run ./cmd/qwen-apply-patch-mcp --root .
-```
+Use this mode if you prefer exposing `apply_patch` through `mcpServers`.
 
-The MCP transport is newline-delimited JSON over stdio, which matches Claude Code's stdio MCP expectations.
-
-Claude Code config example:
-
-```json
-{
-  "mcpServers": {
-    "strictPatch": {
-      "command": "/usr/local/bin/qwen-apply-patch-mcp",
-      "args": ["--root", "."]
-    }
-  }
-}
-```
-
-Qwen Code MCP config example:
+Config file: `~/.qwen/settings.json`
 
 ```json
 {
@@ -235,6 +229,82 @@ Qwen Code MCP config example:
   }
 }
 ```
+
+### Claude Code - stdio MCP
+
+Use this mode if you want Claude Code to call the strict patch tool over stdio MCP.
+
+User config file: `~/.claude.json`  
+Project-scoped MCP config: `.mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "strictPatch": {
+      "command": "/usr/local/bin/qwen-apply-patch-mcp",
+      "args": ["--root", "."]
+    }
+  }
+}
+```
+
+### Recommended Policy
+
+`apply_patch_qwen` works best when it is the only allowed code-writing path.
+
+Recommended:
+
+- allow: read/search/test/build tools
+- deny: `write_file`, direct editor tools, shell redirection writes
+- deny or restrict: remote mutating MCP tools such as GitLab file-update tools
+
+This keeps the agent inside the patch contract: if a patch fails, it must repair the patch instead of escaping into another write route.
+
+### Smoke Test
+
+After wiring the tool, ask your agent:
+
+- create `demo.txt` with `apply_patch`
+- change one line in `hello.txt` using `apply_patch` only
+- do not use `write_file`, editor tools, shell redirection, or remote repo write tools
+
+If the setup is correct, the agent should call `apply_patch` and either:
+
+- succeed
+- or return a strict diagnostic and retry with a corrected patch
+
+## Common Mistakes
+
+- putting Claude Code MCP config into `~/.claude/settings.json` instead of `~/.claude.json`
+- using unified diff headers (`---` / `+++`) instead of Codex-style patch blocks
+- using absolute paths or `..`
+- trying to replace a file via `Delete File` + `Add File` on the same path
+- leaving other write paths enabled, so the agent bypasses `apply_patch`
+
+## Discovery / Call Adapter
+
+Discovery:
+
+```bash
+go run ./cmd/qwen-apply-patch-tool discovery
+```
+
+Call:
+
+```bash
+printf '%s' '{"patch":"*** Begin Patch\n*** Add File: demo.txt\n+hello\n*** End Patch\n"}' \
+  | go run ./cmd/qwen-apply-patch-tool call apply_patch
+```
+
+## MCP Server
+
+Run:
+
+```bash
+go run ./cmd/qwen-apply-patch-mcp --root .
+```
+
+The MCP transport is newline-delimited JSON over stdio, which matches Claude Code's stdio MCP expectations.
 
 ## Semantics
 
